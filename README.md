@@ -64,7 +64,7 @@ QD のイメージ(QDF) ファイルは LittleFS 上に配置します。
 LittleFS 領域は 8MiB なので、以下のように作成します。
 
 ```
-klittlefs -b 4096 -s 8388608 -c ./nise1500 nise1500.img
+mklittlefs -b 4096 -s 8388608 -c ./nise1500 nise1500.img
 ```
 
 作った LittleFS イメージを Pico の Flash に書き込みます。
