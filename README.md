@@ -67,6 +67,13 @@ LittleFS 領域は 8MiB なので、以下のように作成します。
 klittlefs -b 4096 -s 8388608 -c ./nise1500 nise1500.img
 ```
 
+作った LittleFS イメージを Pico の Flash に書き込みます。
+
+```
+picotool.exe load -v -x nise1500.img -t bin -o 0x10800000
+```
+
+
 なお、QuickDisk は読み込み専用です。書き込みはできません。
 
 LittleFS の取り扱いについては、詳しくは[こちらの記事](https://shippoiincho.github.io/posts/39/)を見てください。
@@ -141,8 +148,6 @@ yanataka60さんの[MZ-1500SD 付属のツール 1Z-1R12_Header](https://github.
 ---
 ## PIO-3034 EMM
 
-![EMM test](/pictures/screenshot03.jpg)
-
 320KB の EMM をエミュレートします。
 Hu-BASIC などで使用することができます。
 
@@ -168,8 +173,6 @@ OUT &HBD,2
 
 ---
 ## PCG-700
-
-![PCG700 test](/pictures/screenshot04.jpg)
 
 VGA 出力に PCG-700 のエミュレーションをします。
 本体出力との同期をとっていませんので、ソフトウェアによっては正しく描画されないことがあります。
