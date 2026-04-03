@@ -78,6 +78,9 @@ picotool.exe load -v -x nise1500.img -t bin -o 0x10800000
 
 LittleFS の取り扱いについては、詳しくは[こちらの記事](https://shippoiincho.github.io/posts/39/)を見てください。
 
+QD ファイルの選択は SW1/SW2 を使います。
+VGA 画面の一番下(26行目)に選択したファイル名が一定時間表示されます。
+
 ---
 ## MZ-1R18 RAMFILE
 

@@ -69,6 +69,8 @@ uint8_t extram[0x1800];
 //#define PCGWAIT             // Enable WAIT for PCG-RAM write access
 #define PSGWAIT             // Enable WAIT for PSG write
 
+volatile uint32_t merq_count=0;
+
 #define MAXROMPAGE 64       // =  32KiB * 64 pages = 2048KiB
 #define MAXEMMPAGE 16       // = 320KiB * 16 pages = 5120KiB
 
@@ -182,7 +184,7 @@ uint16_t psg_volume[] = { 0xFF,0xCB,0xA1,0x80,0x66,0x51,0x40,0x33,0x28,0x20,0x1A
 #define SAMPLING_INTERVAL (TIME_UNIT/SAMPLING_FREQ) 
 
 #define I8253CLOCK 894000 // NTSC
-//#define I8253CLOCK 110800 // PAL
+//#define I8253CLOCK 1108000 // PAL
 
 volatile uint8_t sioa[8],siob[8];
 volatile uint8_t sioa_access,siob_access;
@@ -2124,37 +2126,7 @@ void __not_in_flash_func(main_core1)(void) {
             address=(bus&0xffff00)>>8;
             data=bus&0xff;
 
-#ifdef PCGWAIT
-            needwait=0;
-            if((pcg_enabled!=0xff)&&(address<0xf000)&&(address>=0xd000)) {
-                if((pcg_enabled&3)!=0) {
-                    gpio_set_dir(32,true);
-                    gpio_put(32,false);
-                    needwait=1;
-                }
-            }
-#endif
-
-
             memory_write(address,data);
-
-#ifdef PCGWAIT
-            if(needwait) {
-                // videosync=gpio_get_all64();
-                // while((videosync&0x600000000)==0x600000000) {
-                //     videosync=gpio_get_all64();
-                // }
-  
-//                if(gpio_get(34)!=0) {
-//                if((gpio_get_all64()&0x600000000u)==0x600000000) {
-                    busy_wait_at_least_cycles(600); // 3.3 * clocks
-//                }
-
-                gpio_put(32,true);
-                gpio_set_dir(32,false);   
-                needwait=0; 
-            }
-#endif
 
             control=0;
 
@@ -2164,6 +2136,8 @@ void __not_in_flash_func(main_core1)(void) {
                 control=bus&0x40000000;
             }
 
+            asm volatile("nop \n nop \n nop");            
+            merq_count=0;
 
         } 
 
@@ -2190,13 +2164,6 @@ void __not_in_flash_func(main_core1)(void) {
 
                 } else if((vram_enabled)&&(address>=0xe800)) {
 
-                    // if((control&0x400000)==0) {
-                    //     // ENABLE EXWAIT
-                    //     gpio_set_dir(32,true);
-                    //     gpio_put(32,false);
-                    //     needwait=1;
-                    // }
-
                     data=extram[address-0xe800];
                     response=1;
 
@@ -2204,19 +2171,13 @@ void __not_in_flash_func(main_core1)(void) {
 
             }
 
-            if(response) {
+             if(response) {
 
                 // Set GP0-7 to OUTPUT
 
                 gpio_set_dir_masked(0xff,0xff);
 
                 gpio_put_masked(0xff,data);
-
-                // if(needwait) {
-                //     gpio_put(32,true);
-                //     gpio_set_dir(32,false);
-                //     needwait=0;
-                // }
 
                 // Wait while RD# is low
 
@@ -2243,8 +2204,75 @@ void __not_in_flash_func(main_core1)(void) {
 
             }
 
-        } 
+            asm volatile("nop \n nop \n nop");
+            merq_count=0;
 
+        } 
+#ifdef PCGWAIT
+        else if(control==0xe4000000) {
+            // check MERQ enable
+
+            if(merq_count==4) {
+
+//                if(scanline<125) continue;
+//                if(scanline%2) continue;
+
+                address=(bus&0xffff00)>>8;
+                if((pcg_enabled!=0xff)&&(address<0xf000)&&(address>=0xd000)) {
+                    if((pcg_enabled&3)!=0) {
+                        gpio_set_dir(32,true);
+                        gpio_put(32,false);
+
+                        control=0xc0000000;
+
+                        // Wait while WR# is hi
+                        while(control==0xc0000000) {
+                            bus=gpio_get_all();
+                            control=bus&0xc0000000;
+                        }
+
+                        if(control==0x40000000) { // Read
+                            gpio_put(32,true);
+                            gpio_set_dir(32,false);
+                            status[38]=0x6b;
+                            continue;
+                        }
+
+                        data=bus&0xff;                        
+//status[39]=address&0xff;
+//                        memory_write(address,data);
+                        pcg[(address-0xd000)+((pcg_enabled&3)-1)*0x2000]=data;
+
+// Case1                        
+//                        videosync=0x600000000;
+//                        while((videosync&0x600000000)==0x600000000) {
+//                            videosync=gpio_get_all64();
+//                        }
+// Case2
+                        while(gpio_get(33)!=0);
+// Case3
+//                        busy_wait_at_least_cycles(200);
+
+                            gpio_put(32,true);
+                            gpio_set_dir(32,false);
+
+                        control=0;                            
+                        // Wait while WR# is low
+                        while(control==0) {
+                            bus=gpio_get_all();
+                            control=bus&0x40000000;
+                        }
+
+                    }
+                }
+
+            } else {
+                merq_count++;
+            }
+            
+
+        }
+#endif
         // Interrupt vector
 
         else if(control==0xd0000000) {
