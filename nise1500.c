@@ -66,7 +66,7 @@ volatile uint8_t pcg_enabled;
 
 uint8_t extram[0x1800];
 
-//#define PCGWAIT             // Enable WAIT for PCG-RAM write access
+#define PCGWAIT             // Enable WAIT for PCG-RAM write access
 #define PSGWAIT             // Enable WAIT for PSG write
 
 volatile uint32_t merq_count=0;
@@ -321,6 +321,9 @@ void __not_in_flash_func(hsync_handler)(void) {
                         } else {
                             if (i8253_counter[2]>1) {
                                 i8253_counter[2]--;
+                                
+                                pioa_data&=0xd0;
+
                             } else {
 //                            i8253_counter[2]=i8253_preload[2];
                               i8253_counter[2]=65535;
@@ -393,6 +396,8 @@ bool __not_in_flash_func(sound_handler)(void) {
             } else {
                 beep_on=0;
             }
+
+            pioa_data&=0xe0;
 
         } else {
             i8253_counter[0]=i8253_counter[0]+(i8253_preload[0]-timer_diffs);
@@ -1827,7 +1832,8 @@ void __not_in_flash_func(main_core1)(void) {
     gpio_init(32);
     gpio_set_dir(32,false);
 
-    //    gpio_set_dir(32,true);
+        // gpio_set_dir(32,true);
+        // gpio_put(32,true);
 
     while(1) {
 
@@ -2212,16 +2218,21 @@ void __not_in_flash_func(main_core1)(void) {
         else if(control==0xe4000000) {
             // check MERQ enable
 
-            if(merq_count==4) {
+                gpio_set_dir(32,true);
+                gpio_put(32,false);
 
-//                if(scanline<125) continue;
-//                if(scanline%2) continue;
+//                if(scanline<125) {
+                if(scanline<160) {                    
+                    gpio_put(32,true);
+                    gpio_set_dir(32,false);                    
+                    continue;
+                }
 
                 address=(bus&0xffff00)>>8;
                 if((pcg_enabled!=0xff)&&(address<0xf000)&&(address>=0xd000)) {
                     if((pcg_enabled&3)!=0) {
-                        gpio_set_dir(32,true);
-                        gpio_put(32,false);
+//                        gpio_set_dir(32,true);
+//                        gpio_put(32,false);
 
                         control=0xc0000000;
 
@@ -2234,13 +2245,28 @@ void __not_in_flash_func(main_core1)(void) {
                         if(control==0x40000000) { // Read
                             gpio_put(32,true);
                             gpio_set_dir(32,false);
-                            status[38]=0x6b;
+#if 0
+                            // PCG BANK
+                            data=pcg[(address-0xd000)+((pcg_enabled&3)-1)*0x2000];
+                            // Set GP0-7 to OUTPUT
+                            gpio_set_dir_masked(0xff,0xff);
+                            gpio_put_masked(0xff,data);
+
+                            // Wait while RD# is low
+                            control=0;
+
+                            while(control==0) {
+                                bus=gpio_get_all();
+                                control=bus&0x80000000;
+                            }
+                            // Set GP0-7 to INPUT
+                            gpio_set_dir_masked(0xff,0x00);
+#endif
+
                             continue;
                         }
 
                         data=bus&0xff;                        
-//status[39]=address&0xff;
-//                        memory_write(address,data);
                         pcg[(address-0xd000)+((pcg_enabled&3)-1)*0x2000]=data;
 
 // Case1                        
@@ -2249,7 +2275,7 @@ void __not_in_flash_func(main_core1)(void) {
 //                            videosync=gpio_get_all64();
 //                        }
 // Case2
-                        while(gpio_get(33)!=0);
+                            while(gpio_get(33)!=0);
 // Case3
 //                        busy_wait_at_least_cycles(200);
 
@@ -2262,14 +2288,13 @@ void __not_in_flash_func(main_core1)(void) {
                             bus=gpio_get_all();
                             control=bus&0x40000000;
                         }
-
+                        continue;
                     }
                 }
 
-            } else {
-                merq_count++;
-            }
-            
+                gpio_put(32,true);
+                gpio_set_dir(32,false);
+           
 
         }
 #endif
