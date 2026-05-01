@@ -2425,7 +2425,7 @@ int main() {
                     for(uint32_t i=0;i<0x50000;i+=4096) {
                     uint32_t ints = save_and_disable_interrupts();
 //                    multicore_lockout_start_blocking();     // pause another core
-                    flash_range_erase(i+0x200000u+(flash_command&0xf)*0x50000u, 4096);
+                    flash_range_erase(i+0x280000u+(flash_command&0xf)*0x50000u, 4096);
 //                    multicore_lockout_end_blocking();
                     restore_interrupts(ints);
                     }
@@ -2433,7 +2433,7 @@ int main() {
                     for(uint32_t i=0;i<0x50000;i+=4096) {
                     uint32_t ints = save_and_disable_interrupts();
 //                    multicore_lockout_start_blocking();     // pause another core
-                    flash_range_program(i+0x200000u+(flash_command&0xf)*0x50000u, (const uint8_t *)(emm+i), 4096);
+                    flash_range_program(i+0x280000u+(flash_command&0xf)*0x50000u, (const uint8_t *)(emm+i), 4096);
 //                    multicore_lockout_end_blocking();
                     restore_interrupts(ints);
                     }
